@@ -1,52 +1,55 @@
 package com.liushuo.auto.http;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.Maps;
+import com.liushuo.auto.http.retrofitfactory.MaiMengComicRetrofitFactory;
+import com.liushuo.auto.http.retrofitfactory.QiReComicRetrofitFactory;
+import com.liushuo.auto.http.retrofitfactory.RetrofitFactory;
 
 import org.checkerframework.checker.nullness.qual.NonNull;
 
+import java.util.HashMap;
 import java.util.Map;
 
-import okhttp3.OkHttpClient;
 import retrofit2.Retrofit;
-import retrofit2.converter.gson.GsonConverterFactory;
-import retrofit2.converter.scalars.ScalarsConverterFactory;
 
 public class RetrofitManager {
     
-    private static final Map<OkHttpClient, Retrofit> sRetrofits = Maps.newHashMap();
-    private static String sDefaultBaseUrl;
+    private static Map<String, RetrofitFactory> sRetrofitFactories = new HashMap<>();
+    private static Map<String, Retrofit> sRetrofits = new HashMap<>();
+    
+    static {
+        // 麦萌漫画
+        RetrofitFactory maiMengRF = new MaiMengComicRetrofitFactory();
+        sRetrofitFactories.put(maiMengRF.defaultBaseUrl(), maiMengRF);
+        
+        // 奇热漫画
+        RetrofitFactory qiReRF = new QiReComicRetrofitFactory();
+        sRetrofitFactories.put(qiReRF.defaultBaseUrl(), qiReRF);
+    }
     
     private RetrofitManager() {
     }
     
-    public static void setDefaultBaseUrl(@NonNull String baseUrl) {
+    @NonNull
+    public static Retrofit getRetrofit(@NonNull String baseUrl) {
         Preconditions.checkNotNull(baseUrl);
         
-        sDefaultBaseUrl = baseUrl;
-    }
-    
-    @NonNull
-    public static Retrofit getRetrofit(@NonNull OkHttpClient okHttpClient) {
-        Preconditions.checkNotNull(okHttpClient);
-        Preconditions.checkNotNull(sDefaultBaseUrl != null, "网络库需要指定使用的默认域名!");
-        
-        if (sRetrofits.get(okHttpClient) == null) {
+        if (sRetrofits.get(baseUrl) == null) {
             synchronized (sRetrofits) {
-                if (sRetrofits.get(okHttpClient) == null) {
-                    Retrofit retrofit = new Retrofit.Builder()
-                                                .baseUrl(sDefaultBaseUrl)
-                                                .client(okHttpClient)
-                                                .addConverterFactory(ScalarsConverterFactory.create())
-                                                .addConverterFactory(GsonConverterFactory.create())
-                                                .build();
+                if (sRetrofits.get(baseUrl) == null) {
                     
-                    sRetrofits.put(okHttpClient, retrofit);
+                    RetrofitFactory retrofitFactory = sRetrofitFactories.get(baseUrl);
+                    if (retrofitFactory == null) {
+                        throw new RuntimeException("没有找到指定的Http Retrofit factory for url:" + baseUrl);
+                    }
+                    
+                    Retrofit retrofit = retrofitFactory.createRetrofit();
+                    sRetrofits.put(baseUrl, retrofit);
                 }
             }
             
         }
         
-        return sRetrofits.get(okHttpClient);
+        return sRetrofits.get(baseUrl);
     }
 }

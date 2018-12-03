@@ -1,8 +1,9 @@
-package com.liushuo.auto;
+package com.liushuo.auto.requester;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.liushuo.auto.constant.TextConstant;
 import com.liushuo.auto.http.HttpClient;
 import com.liushuo.auto.log.Log;
 import com.liushuo.auto.util.ComicUtil;
@@ -20,9 +21,7 @@ import java.util.Map;
 
 import retrofit2.Call;
 
-public class AutoRequester {
-    private static final String TEXT = "共享大量付费漫画，全网最全,更新最快，不论是腐的，污的还是恋爱的，要啥有啥，心动了？加我薇吧xxxx，这些全部给你！";
-    
+public class MaiMengRequester extends Requester {
     
     private static final String COMMENT_POST = "https://api-app.maimengjun.com/comment/commentPost";
     private static final String MM_COMIC_CATEGORIES = "https://api-app.maimengjun.com/comic/categories";
@@ -32,14 +31,19 @@ public class AutoRequester {
     
     private static final SimpleDateFormat sPrintDF = new SimpleDateFormat("yyyy年MM月dd日");
     
-    
     public static void main(String[] args) {
+        MaiMengRequester requester = new MaiMengRequester();
         // 请求所有分类
-        autoFetchComicCategories();
+        requester.autoFetchComicCategories();
     }
     
-    private static void autoFetchComicCategories() {
-        Call<JsonElement> comicCategoriesCall = HttpClient.getApiService().RetrofitGetApi(MM_COMIC_CATEGORIES, Collections.emptyMap());
+    @Override
+    public String mainBaseUrl() {
+        return "https://api-app.maimengjun.com/";
+    }
+    
+    private void autoFetchComicCategories() {
+        Call<JsonElement> comicCategoriesCall = getHttpService().RetrofitGetApi(MM_COMIC_CATEGORIES, Collections.emptyMap());
         JsonObject comicCategoriesResult = HttpClient.executeHttpCall(comicCategoriesCall);
         JsonArray comicCategoryJson = ((JsonObject) (comicCategoriesResult.getAsJsonArray("data").get(0))).getAsJsonArray("categoryList");
         Log.log("成功获取所有分类数据,category list:" + comicCategoryJson);
@@ -51,7 +55,7 @@ public class AutoRequester {
         }
     }
     
-    private static void autoFetchComicCurrentYearPost(JsonObject comicDetail) {
+    private void autoFetchComicCurrentYearPost(JsonObject comicDetail) {
         List<JsonObject> currentYearPosts = new ArrayList<>();
         
         long currentYearBeginTime = 0;
@@ -74,7 +78,7 @@ public class AutoRequester {
             options.put("page", page + "");
             options.put("size", size + "");
             options.put("orderType", orderType + "");
-            Call<JsonElement> postListCall = HttpClient.getApiService().RetrofitGetApi(MM_COMIC_POST_LIST, options);
+            Call<JsonElement> postListCall = getHttpService().RetrofitGetApi(MM_COMIC_POST_LIST, options);
             JsonObject postListResult = HttpClient.executeHttpCall(postListCall);
             if (postListResult == null) {
                 Log.log("小组的帖子数据获取失败,cludId:" + clubId);
@@ -120,7 +124,7 @@ public class AutoRequester {
         autoReplyCurrentYearPosts(currentYearPosts);
     }
     
-    private static void autoReplyCurrentYearPosts(List<JsonObject> thisYearPosts) {
+    private void autoReplyCurrentYearPosts(List<JsonObject> thisYearPosts) {
         int postsCount = thisYearPosts.size();
         for (int i = 0; i < postsCount; i++) {
             JsonObject obj = thisYearPosts.get(i);
@@ -130,19 +134,19 @@ public class AutoRequester {
             
             Map<String, String> commentPostParams = new HashMap<>();
             commentPostParams.put("postsId", id);
-            commentPostParams.put("content", TEXT);
+            commentPostParams.put("content", TextConstant.TEXT);
             
-            Call<JsonElement> commentPostCall = HttpClient.getApiService().RetrofitPostFormApi(COMMENT_POST, commentPostParams, Collections.emptyMap());
+            Call<JsonElement> commentPostCall = getHttpService().RetrofitPostFormApi(COMMENT_POST, commentPostParams, Collections.emptyMap());
             Log.log("自动回复帖子:" + title + ",create time:" + sPrintDF.format(new Date(Long.parseLong(createTime) * 1000)));
         }
     }
     
-    private static void autoEnterComicDetail(JsonObject comicSummary) {
+    private void autoEnterComicDetail(JsonObject comicSummary) {
         String bookId = comicSummary.getAsJsonPrimitive("id").getAsString();
         
         Map<String, String> options = new HashMap<>();
         options.put("id", bookId);
-        Call<JsonElement> comicDetailCall = HttpClient.getApiService().RetrofitGetApi(MM_CATEGORY_COMIC_DETAIL, options);
+        Call<JsonElement> comicDetailCall = getHttpService().RetrofitGetApi(MM_CATEGORY_COMIC_DETAIL, options);
         JsonObject comicDetailResult = HttpClient.executeHttpCall(comicDetailCall);
         if (comicDetailResult == null) {
             return;
@@ -160,7 +164,7 @@ public class AutoRequester {
      *
      * @param category
      */
-    private static void autoEnterComicCategory(@NonNull JsonObject category) {
+    private void autoEnterComicCategory(@NonNull JsonObject category) {
         
         List<JsonObject> comicSummaryList = new ArrayList<>();
         
@@ -176,7 +180,7 @@ public class AutoRequester {
             queryParams.put("size", size + "");
             
             
-            Call<JsonElement> comicSummaryListCall = HttpClient.getApiService().RetrofitGetApi(MM_CATEGORY_COMIC_SUMMARY_LIST, queryParams);
+            Call<JsonElement> comicSummaryListCall = getHttpService().RetrofitGetApi(MM_CATEGORY_COMIC_SUMMARY_LIST, queryParams);
             JsonObject comicSummaryListResult = HttpClient.executeHttpCall(comicSummaryListCall);
             if (comicSummaryListResult == null) {
                 Log.log("获取漫画列表失败,ename=" + ename);
